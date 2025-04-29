@@ -17,3 +17,5 @@ Create Stack: `aws cloudformation create-stack --stack-name waymark-audio-upload
 Update Stack: `aws cloudformation update-stack --stack-name waymark-audio-uploads-dev --template-body file://infrastructure/main.yaml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM`
 Delete Stack: `aws cloudformation delete-stack --stack-name waymark-audio-uploads-dev`
 
+# Incomplete work
+- Auth middleware - secure all routes
