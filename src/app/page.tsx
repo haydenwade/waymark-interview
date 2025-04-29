@@ -6,6 +6,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [fileId, setFileId] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -20,6 +21,7 @@ export default function Home() {
     setUploading(true);
     setStatus('uploading');
     setFileId(null);
+    setDownloadUrl(null);
 
     try {
       const res = await fetch('/api/audio-files/signed', {
@@ -61,10 +63,15 @@ export default function Home() {
         const res = await fetch(`/api/audio-files/${fileId}/status`);
         const data = await res.json();
         const currentStatus = data?.versions?.browser?.status;
+        const processedUrl = data?.versions?.browser?.processedUrl;
 
         if (currentStatus) {
           setStatus(currentStatus);
-          if (['completed', 'errored'].includes(currentStatus)) {
+
+          if (currentStatus === 'completed' && processedUrl) {
+            setDownloadUrl(processedUrl);
+            clearInterval(interval);
+          } else if (currentStatus === 'errored') {
             clearInterval(interval);
           }
         }
@@ -88,8 +95,17 @@ export default function Home() {
           disabled={uploading}
           className="text-sm"
         />
-        {uploading && <p>Uploading...</p>}
         {status && <p>Status: <strong>{status}</strong></p>}
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline mt-4"
+          >
+            Download Processed Audio
+          </a>
+        )}
       </main>
     </div>
   );
