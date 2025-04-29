@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 bucket and IAM user for audio uploads with presigned URLs
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+
+Resources:
+  AudioUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub waymark-audio-uploads-${Env}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  AudioUploaderUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub audio-uploader-${Env}
+
+  AudioUploaderPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub audio-uploader-s3-policy-${Env}
+      Users:
+        - !Ref AudioUploaderUser
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub arn:aws:s3:::waymark-audio-uploads-${Env}/uploads/*
+
+  AudioUploaderAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref AudioUploaderUser
+
+Outputs:
+  AccessKeyId:
+    Description: Access key for audio uploader
+    Value: !Ref AudioUploaderAccessKey
+    Export:
+      Name: AudioUploaderAccessKeyId
+
+  SecretAccessKey:
+    Description: Secret access key for audio uploader
+    Value: !GetAtt AudioUploaderAccessKey.SecretAccessKey
+    Export:
+      Name: AudioUploaderSecretAccessKey
+
+  BucketName:
+    Description: Name of the S3 bucket
+    Value: !Ref AudioUploadsBucket
+    Export:
+      Name: AudioUploadsBucketName
