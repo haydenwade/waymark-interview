@@ -1,6 +1,6 @@
 # Waymark Interview Prep
 [Requirements Document](https://docs.google.com/document/d/1poL2NkxOigxMtuXDueo2w5xFYuBsCPDtR32QakWTfdk/edit?tab=t.0)
-[Design Document](https://docs.google.com/document/d/1HcokzJz4GjLYQRd4hEuQJuwtPxHXnA3bmrw23BaI-BA/edit?tab=t.0)
+[Design Document](https://docs.google.com/document/d/1HcokzJz4GjLYQRd4hEuQJuwtPxHXnA3bmrw23BaI-BA/edit?usp=sharing)
 
 
 ## Directory
