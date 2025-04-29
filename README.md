@@ -27,3 +27,5 @@ Delete Stack: `aws cloudformation delete-stack --stack-name waymark-audio-upload
 - Request handling
 - Typings
 - Secure the processed urls - consider signed urls here
+- Refactor to use configuration (aka productionize it)
+- Add application layers (service layers, data access layers, etc)
