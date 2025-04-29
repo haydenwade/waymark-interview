@@ -8,6 +8,16 @@
         "command": "npm run dev"
       },
       {
+        "type": "node",
+        "request": "launch",
+        "name": "Run Audio Browser Quality Consumer",
+        "program": "${workspaceFolder}/consumers/audio-browser-quality-consumer.js",
+        "runtimeArgs": ["--no-warnings"],
+        "envFile": "${workspaceFolder}/.env.local",
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"]
+      },
+      {
         "name": "Next.js: debug client-side",
         "type": "chrome",
         "request": "launch",

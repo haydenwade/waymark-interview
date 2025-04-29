@@ -10,6 +10,12 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+    if (file.size > maxSize) {
+      alert('File is too large. Maximum size allowed is 200MB.');
+      return;
+    }
+
     setUploading(true);
     setSuccess(false);
 
