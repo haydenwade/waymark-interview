@@ -23,3 +23,5 @@ Delete Stack: `aws cloudformation delete-stack --stack-name waymark-audio-upload
 - UI/UX
 - HD transcoding - follow same pattern as browser quality transcoding
 - Auto-scaling
+- Request handling
+- Typings

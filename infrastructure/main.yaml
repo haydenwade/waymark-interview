@@ -29,9 +29,20 @@ Resources:
             Queue: !GetAtt BrowserQualityTranscodeQueue.Arn
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
-        BlockPublicPolicy: true
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+
+  AudioUploadsPublicReadPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AudioUploadsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPublicReadProcessed
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::waymark-audio-uploads-${Env}/processed/*
 
   BrowserQualityTranscodeDLQ:
     Type: AWS::SQS::Queue
@@ -42,7 +53,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub browser-quality-transcode-queue-${Env}
-      VisibilityTimeout: 600  # 10 minutes for FFmpeg jobs
+      VisibilityTimeout: 600 # 10 minutes for FFmpeg jobs
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt BrowserQualityTranscodeDLQ.Arn
