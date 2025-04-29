@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const client = new MongoClient(MONGODB_URI);
     await client.connect();
     const db = client.db(MONGODB_DB);
-    const audioFiles = db.collection('audioFiles');
+    const audioFiles = db.collection('audioFiles');//TODO: Move to config
 
     await audioFiles.insertOne({
       _id: fileId,
@@ -48,7 +48,11 @@ export async function POST(req: NextRequest) {
       key,
       contentType,
       createdAt: Date.now(),
-      status: 'queued',
+      versions: {
+        browser:{
+          status:'queued',
+        }
+      }
     });
 
     await client.close();

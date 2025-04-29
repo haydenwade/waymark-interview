@@ -19,6 +19,25 @@ const QUEUE_URL = process.env.SQS_QUEUE_URL; //TODO: Move to config
 const s3 = new S3Client({ region: REGION }); //TODO: Move to config
 const sqs = new SQSClient({ region: REGION }); //TODO: Move to config
 
+async function updateProgress(fileId, progress, errors = []) {
+  const res = await fetch(`http://localhost:3000/api/audio-files/${fileId}`, {
+    //TODO: Move to config
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      version: "browser",
+      progress,
+      ...(errors.length > 0 ? { errors } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    console.error(`Failed to update progress for ${fileId}:`, await res.text());
+  }
+}
+
 async function transcodeAudio(inputPath, outputPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
@@ -49,36 +68,49 @@ async function handleMessage(message) {
 
   const bucket = record.s3.bucket.name;
   const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " ")); // S3 encoding fix
+
+  // 🚨 Ignore processed/ files - prevents event recursion
+  if (!key.startsWith("uploads/")) {
+    console.log(`Ignoring non-uploads file: ${key}`);
+    return;
+  }
+
   const fileId = path.basename(key, path.extname(key)); // "6811188929fe0e69d4a2319a"
   const inputPath = path.join(tmpdir(), path.basename(key));
   const outputKey = `processed/${fileId}_browser.m4a`;
   const outputPath = path.join(tmpdir(), `${fileId}_browser.m4a`);
+  try {
+    await updateProgress(fileId, "in-progress");
+    // 1. Download original
+    const s3Object = await s3.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key })
+    );
+    await pipeline(s3Object.Body, fs.createWriteStream(inputPath));
 
-  // 1. Download original
-  const s3Object = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key })
-  );
-  await pipeline(s3Object.Body, fs.createWriteStream(inputPath));
+    // 2. Transcode
+    await transcodeAudio(inputPath, outputPath);
 
-  // 2. Transcode
-  await transcodeAudio(inputPath, outputPath);
+    // 3. Upload result
+    const fileBuffer = fs.readFileSync(outputPath);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: outputKey,
+        Body: fileBuffer,
+        ContentType: "audio/mp4",
+      })
+    );
 
-  // 3. Upload result
-  const fileBuffer = fs.readFileSync(outputPath);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: outputKey,
-      Body: fileBuffer,
-      ContentType: "audio/mp4",
-    })
-  );
-
-  // 4. Cleanup
-  fs.unlinkSync(inputPath);
-  fs.unlinkSync(outputPath);
-
-  console.log(`Successfully processed and uploaded ${outputKey}`);
+    console.log(`Successfully processed and uploaded ${outputKey}`);
+    // 4. Update status
+    await updateProgress(fileId, "completed");
+  } catch (err) {
+    console.error(`Error processing ${key}:`, err);
+    await updateProgress(fileId, "errored", [err.message]);
+  } finally {
+    fs.existsSync(inputPath) && fs.unlinkSync(inputPath);
+    fs.existsSync(outputPath) && fs.unlinkSync(outputPath);
+  }
 }
 
 async function pollQueue() {
