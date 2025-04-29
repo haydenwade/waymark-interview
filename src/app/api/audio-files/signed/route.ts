@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const s3 = new S3Client({
   region: 'us-west-1',
@@ -11,8 +11,10 @@ const s3 = new S3Client({
   },
 });
 
-const BUCKET_NAME = 'waymark-audio-uploads-dev'; //TODO: move to config
+const BUCKET_NAME = 'waymark-audio-uploads-dev'; // TODO: move to config
 const FOLDER = 'uploads/';
+const MONGODB_URI = process.env.MONGODB_URI!; // TODO: move to config
+const MONGODB_DB = process.env.MONGODB_DB || 'waymark-dev'; // TODO: move to config
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const fileExt = filename.split('.').pop();
-    const fileId = uuidv4();
+    const fileId = new ObjectId();
     const key = `${FOLDER}${fileId}.${fileExt}`;
 
     const command = new PutObjectCommand({
@@ -34,12 +36,29 @@ export async function POST(req: NextRequest) {
 
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
 
+    // ✅ Save document to MongoDB
+    const client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    const db = client.db(MONGODB_DB);
+    const audioFiles = db.collection('audioFiles');
+
+    await audioFiles.insertOne({
+      _id: fileId,
+      filename,
+      key,
+      contentType,
+      createdAt: Date.now(),
+      status: 'queued',
+    });
+
+    await client.close();
+
     return NextResponse.json({
-      fileId,
+      fileId:fileId.toString(),
       uploadUrl,
     });
   } catch (error) {
-    console.error('Error generating signed URL:', error); //TODO: replace with logger
+    console.error('Error generating signed URL:', error); // TODO: replace with logger
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
