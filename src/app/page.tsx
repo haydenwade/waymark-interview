@@ -97,7 +97,7 @@ export default function Home() {
         console.error('Polling error:', err);
         clearInterval(interval);
       }
-    }, 3000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [fileId, status]);

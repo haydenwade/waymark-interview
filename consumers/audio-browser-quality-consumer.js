@@ -38,7 +38,24 @@ async function updateProgress(fileId, progress, errors = []) {
   }
 }
 
-async function transcodeAudio(inputPath, outputPath) {
+function getDuration(filePath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      resolve(metadata.format.duration); // in seconds
+    });
+  });
+}
+
+function timemarkToSeconds(timemark) {
+  const [hh, mm, ss] = timemark.split(":").map(parseFloat);
+  return hh * 3600 + mm * 60 + ss;
+}
+
+
+async function transcodeAudio(inputPath, outputPath, fileId) {
+  const totalDuration = await getDuration(inputPath);
+
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .audioCodec("aac")
@@ -46,6 +63,20 @@ async function transcodeAudio(inputPath, outputPath) {
       .audioChannels(2)
       .audioFrequency(48000)
       .format("ipod") // for .m4a with AAC
+      .on("progress", async (progress) => {
+        if (progress.timemark) {
+          const currentSeconds = timemarkToSeconds(progress.timemark);
+          const percent = Math.min(
+            100,
+            Math.round((currentSeconds / totalDuration) * 100)
+          );
+          if(percent === 100){
+            await updateProgress(fileId, "transcode completed, storing file...");
+          }else{
+            await updateProgress(fileId, `transcode in-progress: ${percent}%`);
+          }
+        }
+      })
       .on("end", resolve)
       .on("error", reject)
       .save(outputPath);
@@ -80,7 +111,7 @@ async function handleMessage(message) {
   const outputKey = `processed/${fileId}_browser.m4a`;
   const outputPath = path.join(tmpdir(), `${fileId}_browser.m4a`);
   try {
-    await updateProgress(fileId, "in-progress");
+    await updateProgress(fileId, "starting-transcode");
     // 1. Download original
     const s3Object = await s3.send(
       new GetObjectCommand({ Bucket: bucket, Key: key })
@@ -88,7 +119,7 @@ async function handleMessage(message) {
     await pipeline(s3Object.Body, fs.createWriteStream(inputPath));
 
     // 2. Transcode
-    await transcodeAudio(inputPath, outputPath);
+    await transcodeAudio(inputPath, outputPath, fileId);
 
     // 3. Upload result
     const fileBuffer = fs.readFileSync(outputPath);
