@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
+import mongoClientPromise from "@/components/mongo-client-promise";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
 const MONGODB_DB = process.env.MONGODB_DB || "waymark-dev"; // TODO: move to config
 
 export async function PATCH(
@@ -22,8 +22,7 @@ export async function PATCH(
       );
     }
 
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
+    const client = await mongoClientPromise;
     const db = client.db(MONGODB_DB);
     const audioFiles = db.collection("audioFiles"); // TODO: move to config
 
@@ -49,7 +48,6 @@ export async function PATCH(
       update
     );
 
-    await client.close();
 
     if (result.matchedCount === 0) {
       return NextResponse.json(

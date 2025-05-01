@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
+import mongoClientPromise from '@/components/mongo-client-promise';
 
 const s3 = new S3Client({
   region: 'us-west-1',
@@ -13,7 +14,6 @@ const s3 = new S3Client({
 
 const BUCKET_NAME = 'waymark-audio-uploads-dev'; // TODO: move to config
 const FOLDER = 'uploads/';
-const MONGODB_URI = process.env.MONGODB_URI!; // TODO: move to config
 const MONGODB_DB = process.env.MONGODB_DB || 'waymark-dev'; // TODO: move to config
 
 export async function POST(req: NextRequest) {
@@ -37,8 +37,7 @@ export async function POST(req: NextRequest) {
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
 
     // ✅ Save document to MongoDB
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
+    const client = await mongoClientPromise;
     const db = client.db(MONGODB_DB);
     const audioFiles = db.collection('audioFiles');//TODO: Move to config
 
@@ -55,7 +54,6 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    await client.close();
 
     return NextResponse.json({
       fileId:fileId.toString(),
