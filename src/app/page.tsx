@@ -19,7 +19,6 @@ export default function Home() {
     }
 
     setUploading(true);
-    setStatus('uploading');
     setFileId(null);
     setDownloadUrl(null);
 
@@ -37,17 +36,36 @@ export default function Home() {
       const { fileId, uploadUrl } = await res.json();
       setFileId(fileId);
 
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type);
+      
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            setStatus(`Uploading... ${percent}%`);
+          }
+        };
+      
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            setStatus('Upload complete. Queued for processing.');
+            resolve();
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+      
+        xhr.onerror = () => {
+          reject(new Error('Network error'));
+        };
+      
+        xhr.send(file);
       });
-
-      if (!uploadRes.ok) throw new Error('Failed to upload to S3');
-      setStatus('queued');
+      
     } catch (err) {
       console.error(err);
-      setStatus('error');
       alert('Upload failed.');
     } finally {
       setUploading(false);
@@ -56,7 +74,7 @@ export default function Home() {
 
   // Poll for status if we have a fileId and not yet completed or errored
   useEffect(() => {
-    if (!fileId || !['queued', 'in-progress'].includes(status || '')) return;
+    if (!fileId || status?.includes('Uploading')) return;
 
     const interval = setInterval(async () => {
       try {
